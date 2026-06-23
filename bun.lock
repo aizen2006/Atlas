@@ -14,6 +14,7 @@
       "name": "agents",
       "dependencies": {
         "@openai/agents": "^0.11.8",
+        "@pipedream/sdk": "^3.1.1",
         "dotenv": "^17.4.2",
         "firecrawl": "^4.28.2",
         "zod": "^4.4.3",
@@ -112,6 +113,8 @@
     "@openai/agents-openai": ["@openai/agents-openai@0.11.8", "", { "dependencies": { "@openai/agents-core": "0.11.8", "debug": "^4.4.0", "openai": "^6.35.0" }, "peerDependencies": { "zod": "^4.0.0" } }, "sha512-XjHCnJPGapgZBlh8y5oxU7zV0hrAQTF5im6HpUwaPcH5CeRFLtc06VXLso0vJ5G3g9e/J5gIh3S1iAxiJqEAVQ=="],
 
     "@openai/agents-realtime": ["@openai/agents-realtime@0.11.8", "", { "dependencies": { "@openai/agents-core": "0.11.8", "@types/ws": "^8.18.1", "debug": "^4.4.0", "ws": "^8.18.1" }, "peerDependencies": { "zod": "^4.0.0" } }, "sha512-i1qEGUE8GTW0neWgAc1aj/3wZFtstz8bVG2BvVbU/BzQbyhZV8j3CvndkMJGFfgeobvVmn2qGTV5Ry6ibfuxeQ=="],
+
+    "@pipedream/sdk": ["@pipedream/sdk@3.1.1", "", {}, "sha512-y/mL3vL7SZAthYwRpDgdPDHdy0wdgCq8VW4zhyMCaq1l+ZbNYiZeJ1zmlinMNUdpnd1bAL78L9kJXwocRq+Atw=="],
 
     "@repo/eslint-config": ["@repo/eslint-config@workspace:packages/eslint-config"],
 
