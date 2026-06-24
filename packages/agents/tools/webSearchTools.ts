@@ -1,8 +1,8 @@
-import { tool } from "@openai/agents"
+import { tool ,type Tool} from "@openai/agents"
 import { z } from "zod"
 import { firecrawl } from "../utils/firecrawl"
 
-export const webSearch = tool({
+export const webSearch:Tool = tool({
     name:"WebSearch tool",
     description:`Search the web for current information and return structured results.
     Prefer this tool when answering questions that require recent events,
@@ -29,7 +29,7 @@ export const webSearch = tool({
     }
 });
 
-export const webScrape = tool({
+export const webScrape :Tool = tool({
     name:'webscraping tool',
     description: `
         Retrieve and extract content from a known webpage URL.
@@ -48,7 +48,7 @@ export const webScrape = tool({
     }
 });
 
-export const agenticSearch = tool({
+export const agenticSearch :Tool = tool({
     name:"agenticSearch tool",
     description: `
         Conduct deep, multi-step web research and synthesize findings.

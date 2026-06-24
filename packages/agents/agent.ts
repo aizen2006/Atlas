@@ -1,6 +1,7 @@
 import { Agent, hostedMcpTool } from '@openai/agents'
 import { client as pd } from "./utils/pipedream";
 import { webSearch , webScrape ,agenticSearch } from './tools/webSearchTools';
+import { listToolsMCP } from './tools/pipedreamTools';
 
 
 // pipedream config
@@ -10,7 +11,6 @@ const accessToken = await pd.rawAccessToken;
 const externalUserId = process.env.PIPEDREAM_USER_ID;
 const calender = await pd.apps.list({q:"google_calendar"});
 const appSlugCalender = calender.data[0]?.nameSlug;
-
 
 
 export const Atlas = new Agent({
@@ -42,6 +42,7 @@ export const Atlas = new Agent({
         - Use the connected Gmail and Calendar tools for email and scheduling actions.
         - Prefer the simplest tool that solves the task.
         - Do not use a more expensive or complex tool when a lighter tool is sufficient.
+        - Use listToolsMCP to list the mcp's callable actions
 
         Work style:
         - Think like an executive support partner, not a chatbot.
@@ -69,11 +70,12 @@ export const Atlas = new Agent({
         webScrape,
         webSearch,
         agenticSearch,
+        listToolsMCP,
         hostedMcpTool({
-            serverLabel:'pipedream',
+            serverLabel:'pipedream-gmail',
             serverUrl:"https://remote.mcp.pipedream.net/v3",
-            authorization:`Bearer ${accessToken}`,
             headers:{
+                Authorization: `Bearer ${accessToken}`,
                 "x-pd-project-id": process.env.PIPEDREAM_PROJECT_ID!,
                 "x-pd-environment": process.env.PIPEDREAM_ENVIRONMENT!,
                 "x-pd-external-user-id": externalUserId!,
@@ -82,10 +84,10 @@ export const Atlas = new Agent({
             requireApproval:'never'
         }),
         hostedMcpTool({
-            serverLabel:'pipedream',
+            serverLabel:'pipedream-calender',
             serverUrl:"https://remote.mcp.pipedream.net/v3",
-            authorization:`Bearer ${accessToken}`,
             headers:{
+                Authorization: `Bearer ${accessToken}`,
                 "x-pd-project-id": process.env.PIPEDREAM_PROJECT_ID!,
                 "x-pd-environment": process.env.PIPEDREAM_ENVIRONMENT!,
                 "x-pd-external-user-id": externalUserId!,
