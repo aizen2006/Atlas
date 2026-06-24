@@ -1,7 +1,7 @@
 Core Functionality :
 
-1. Email managemnet
-2. Calender managemnet 
+1. Email managemnet [Done]
+2. Calender managemnet [Done]
 3. Later Other app integration,
 4. Web search [Done]
 5. SubAgents ( try it )  // try to use sandbox agents
