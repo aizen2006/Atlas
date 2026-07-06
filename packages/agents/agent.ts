@@ -96,5 +96,5 @@ export const Atlas = new Agent({
             requireApproval:'never'
         })
     ],
-    model:"gpt-5.4-mini",
+    model:"gpt-5.5",
 })
