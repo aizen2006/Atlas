@@ -1,6 +1,6 @@
 import { Agent } from "@openai/agents";
-import { Atlas } from "./agent";
-import { listskills } from './tools/listSkills'
+import { Atlas } from "./main.agent";
+import { listskills } from '../tools/listSkills'
 import z from "zod";
 
 export const outputSchema = z.object({

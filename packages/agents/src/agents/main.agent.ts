@@ -1,7 +1,7 @@
 import { Agent, hostedMcpTool } from '@openai/agents'
-import { client as pd } from "./utils/pipedream";
-import { webSearch , webScrape ,agenticSearch } from './tools/webSearchTools';
-import { listToolsMCP } from './tools/pipedreamTools';
+import { client as pd } from "../utils/pipedream";
+import { webSearch , webScrape ,agenticSearch } from '../tools/webSearchTools';
+import { listToolsMCP } from '../tools/pipedreamTools';
 
 
 // pipedream config
