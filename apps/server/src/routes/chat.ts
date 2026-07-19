@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { openai } from "../utils/openai";
-
+import { runAgent , planner_agent } from "@repo/agents";
 
 const chat = new Hono();
 
@@ -72,13 +72,27 @@ chat.post('/',async(c)=>{
     render(prompt,{
         query:response.output_text
     });
-    // 
+    // planner agent 
+    const planner_output = await runAgent(planner_agent,response.output_text);
+    // checks if plans exist and injects the plan into the prompt
+    if(planner_output?.resources.plan){
+        if(!planner_output.plan) throw new Error("Failed to get the plan")
+        render(prompt,{
+            plan:planner_output.plan
+        });
+    }
+    // Memory layer
+    if(planner_output?.resources.memory){
 
+    }
+    // skills layer
+    if(planner_output?.resources.skills){
 
+    }
 })
 
 // for streaming ( later stage)
-
+chat.post('/stream',async(c)=>{})
 
 
 export default chat;

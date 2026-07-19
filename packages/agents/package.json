@@ -1,8 +1,11 @@
 {
-  "name": "agents",
+  "name": "@repo/agents",
   "module": "index.ts",
   "type": "module",
   "private": true,
+  "exports":{
+    ".":"./src/index.ts"
+  },
   "devDependencies": {
     "@types/bun": "latest"
   },

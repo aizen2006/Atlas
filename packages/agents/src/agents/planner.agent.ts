@@ -60,7 +60,7 @@ export const planner_agent = new Agent({
     - Call the 'getSkills' tool.
     - Return ONLY the skills returned by the tool.
     - Never invent or modify skills.
-    - Load as few skills as possible (prefer 1–3).
+    - Load as few skills as possible (prefer 1-3).
 
     If no skills are needed, return an empty array.
 

@@ -5,6 +5,7 @@ import z from "zod";
 import { webSearch } from "./webSearch.tools";
 
 // research more on agents manifest 
+// rewrite the Subagents logic
 
 export const createSubAgents : Tool = tool({
     name:`CreateSubAgents`,

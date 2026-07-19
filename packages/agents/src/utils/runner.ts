@@ -1,27 +1,48 @@
-import { Runner , type Agent } from '@openai/agents'
-import { session } from './sessions';
-import 'dotenv/config';
+import {
+    Runner,
+    type Agent,
+    type AgentOutputType,
+} from "@openai/agents";
+import "dotenv/config";
 
-const runner = new Runner()
+const runner = new Runner();
 
+/**
+ * Run an agent and return its final structured/text output.
+ */
+export async function runAgent<
+    TContext,
+    TOutput extends AgentOutputType<TContext>
+>(
+    agent: Agent<TContext, TOutput>,
+    prompt: string,
+) {
+    const result = await runner.run(agent, prompt);
 
-// later add proper type for agentRunner
+    return result.finalOutput;
+}
 
-export async function agentRunner(agent:Agent,prompt:string):Promise<any>{
-    try {
-        const result = await runner.run(
-            agent,
-            prompt,{
-                session,
-                stream:true
-            },
-        );
-        if(!result.toTextStream({compatibleWithNodeStreams:true})){
-            return "Output is Undefined // Failed to generate the result"
-        }else{
-            return result.toTextStream({ compatibleWithNodeStreams: true })
-        } 
-    } catch (error) {
-        throw error
+/**
+ * Run an agent in streaming mode and return a Node.js Readable stream.
+ */
+export async function runAgentStream<
+    TContext,
+    TOutput extends AgentOutputType<TContext>
+>(
+    agent: Agent<TContext, TOutput>,
+    prompt: string,
+) {
+    const result = await runner.run(agent, prompt, {
+        stream: true,
+    });
+
+    const stream = result.toTextStream({
+        compatibleWithNodeStreams: true,
+    });
+
+    if (!stream) {
+        throw new Error("Failed to create text stream.");
     }
-};
+
+    return stream;
+}
