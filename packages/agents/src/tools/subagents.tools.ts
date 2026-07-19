@@ -2,7 +2,7 @@ import { tool , run ,type Tool} from "@openai/agents";
 import { compaction, filesystem, Manifest, memory, SandboxAgent, shell, skills } from "@openai/agents/sandbox";
 import { UnixLocalSandboxClient } from "@openai/agents/sandbox/local";
 import z from "zod";
-import { webSearch } from "./webSearchTools";
+import { webSearch } from "./webSearch.tools";
 
 // research more on agents manifest 
 

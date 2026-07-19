@@ -7,7 +7,7 @@ const reflectionOutput = z.object({
 
 
 export const reflection_agent = new Agent({
-    name:"Planner Agent",
+    name:"Reflection Agent",
     instructions:``,
     model:'gpt-5.4-mini',
     outputType:reflectionOutput

@@ -6,3 +6,4 @@ export const db = drizzle(process.env.DB_FILE_NAME);
 
 // const result = await db.all('select 1');
 
+export * from "./schema";
