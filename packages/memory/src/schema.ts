@@ -6,7 +6,7 @@ import { sql } from "drizzle-orm";
 export const sessions = tb('sessions',{
     id: integer().primaryKey({autoIncrement:true}),
     title:text(),
-    path:text().notNull(), // path
+    path:text(), // path
     createdAt:integer({mode:"timestamp"}).notNull().default(sql`(unixepoch())`),
     lastOpenedAt:integer({mode:"timestamp"}).notNull().default(sql`(unixepoch())`)
 });

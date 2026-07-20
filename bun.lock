@@ -16,6 +16,7 @@
         "@repo/agents": "workspace:*",
         "@repo/memory": "workspace:*",
         "dotenv": "^17.4.2",
+        "drizzle-orm": "^0.45.2",
         "hono": "^4.12.31",
         "openai": "^6.48.0",
       },
@@ -61,12 +62,10 @@
     "packages/memory": {
       "name": "@repo/memory",
       "dependencies": {
-        "better-sqlite3": "^12.11.1",
         "drizzle-orm": "^0.45.2",
         "sqlite-vec": "^0.1.9",
       },
       "devDependencies": {
-        "@types/better-sqlite3": "^7.6.13",
         "@types/bun": "latest",
         "drizzle-kit": "^0.31.10",
       },

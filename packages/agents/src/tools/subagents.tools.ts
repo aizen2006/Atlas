@@ -1,65 +1,84 @@
-import { tool , run ,type Tool} from "@openai/agents";
-import { compaction, filesystem, Manifest, memory, SandboxAgent, shell, skills } from "@openai/agents/sandbox";
+import { tool, run, type Tool } from "@openai/agents";
+import { SandboxAgent, compaction, filesystem, memory, shell, type Capability } from "@openai/agents/sandbox";
 import { UnixLocalSandboxClient } from "@openai/agents/sandbox/local";
 import z from "zod";
-import { webSearch } from "./webSearch.tools";
+import { webSearch, webScrape, agenticSearch } from "./webSearch.tools";
 
-// research more on agents manifest 
-// rewrite the Subagents logic
+{/*
+    Fixed roster of subagent personas — the calling agent only picks a
+    subagent_type and writes a self-contained prompt, it never invents a new
+    persona per call. Each sub-agent runs in its own sandboxed workspace with
+    no memory of the calling conversation, and only its final output is
+    returned; its intermediate tool calls stay isolated.
+*/}
+const SUBAGENT_TYPES = {
+    general: {
+        description:"Broad multi-step tasks: research, planning, drafting, or anything combining several tools.",
+        instructions:`
+        You are a general-purpose sub-agent spawned by Atlas to complete one focused task independently.
+        Use the tools available to you as needed. Return only the final result Atlas asked for — no narration of your process.
+        `,
+        capabilities:[shell(),filesystem(),memory(),compaction()] as Capability[],
+        tools:[webSearch,webScrape,agenticSearch]
+    },
+    researcher: {
+        description:"Read-only web research and synthesis across multiple sources. Cannot write files or run shell commands.",
+        instructions:`
+        You are a research sub-agent spawned by Atlas. Your only job is to gather and synthesize information from the web.
+        You do not have file or shell access — do not attempt to use them.
+        Return a concise synthesis with the most relevant findings first.
+        `,
+        capabilities:[memory(),compaction()] as Capability[],
+        tools:[webSearch,webScrape,agenticSearch]
+    }
+} as const;
+
+const subagentTypeNames = Object.keys(SUBAGENT_TYPES) as [keyof typeof SUBAGENT_TYPES, ...(keyof typeof SUBAGENT_TYPES)[]];
 
 export const createSubAgents : Tool = tool({
     name:`CreateSubAgents`,
     description: `
-        Create and execute a specialized sub-agent for a focused task.
+        Delegate a focused task to a specialized sub-agent that runs independently in its own sandboxed workspace.
 
-        Use this tool when the requested task is complex, requires deep reasoning, independent execution, multi-step planning, extensive web research, code analysis, or would benefit from delegating work to a dedicated expert agent.
+        Use this when a task is complex, multi-step, would clutter the main conversation with intermediate research or tool calls, or benefits from a focused specialist persona.
 
-        The sub-agent receives its own identity, system instructions, and base instructions, allowing it to work independently while remaining specialized for the assigned objective.
+        Available subagent_type values:
+        - general: broad multi-step tasks (research, planning, drafting, multi-tool work).
+        - researcher: read-only web research and synthesis, no file or shell access.
 
-        Examples of suitable tasks:
-        - Large-scale code analysis or refactoring
-        - Researching a topic from multiple sources
-        - Generating technical documentation
-        - Reviewing architecture or security
-        - Planning features or writing implementation strategies
-        - Debugging complex issues
-        - Long-running reasoning tasks
-        - Tasks that should be isolated from the main conversation context
+        The sub-agent starts with no memory of this conversation, so "prompt" must be a fully self-contained brief: the goal, the relevant context, and what a complete result looks like. Only the sub-agent's final result is returned to you — its intermediate steps are not visible.
 
-        Do NOT use this tool for:
-        - Simple factual questions
-        - Basic calculations
-        - Short conversations
-        - Tasks that can be completed directly in a single response
-        - User-facing chat that doesn't require specialization
-
-        Parameters:
-        - name: A short descriptive name for the specialized agent.
-        - instructions: The complete system instructions defining the agent's expertise, behavior, goals, and constraints.
-        - baseInstructions: Shared foundational instructions inherited by the sub-agent.
-        - query: The task the sub-agent should execute.
+        Do NOT use this for simple questions, short answers, or anything you can complete directly in this turn.
         `,
     parameters:z.object({
-        query:z.string(),
-        name:z.string(),
-        instructions:z.string(),
-        baseInstructions:z.string()
+        subagent_type: z.enum(subagentTypeNames).describe("Which specialist persona to delegate to."),
+        description: z.string().describe("A short (3-6 word) label for this task, for logging."),
+        prompt: z.string().describe("A fully self-contained task brief for the sub-agent — it has no memory of this conversation.")
     }),
-    async execute({instructions,query,baseInstructions,name}){
+    async execute({subagent_type,description,prompt}){
+        const config = SUBAGENT_TYPES[subagent_type];
+
         const agent = new SandboxAgent({
-            name:name,
+            name:`${subagent_type}-subagent`,
             model:"gpt-5.4",
-            instructions:instructions,
-            baseInstructions:baseInstructions,
-            capabilities:[shell(),filesystem(),memory(),compaction()],
-            tools:[webSearch]
+            instructions:config.instructions,
+            capabilities:[...config.capabilities],
+            tools:[...config.tools]
         });
 
-        const result = await run(agent,query,{
-            sandbox:{
-                client: new UnixLocalSandboxClient(),
-            }
-        })
-        return result.finalOutput
+        try {
+            const result = await run(agent,prompt,{
+                sandbox:{
+                    client:new UnixLocalSandboxClient()
+                }
+            });
+            return result.finalOutput;
+        } catch (error) {
+            console.error(`Sub-agent "${description}" (${subagent_type}) failed`,error);
+            return {
+                message:`Sub-agent failed to complete the task: ${description}`,
+                error:String(error)
+            };
+        }
     }
 })

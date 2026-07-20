@@ -2,6 +2,7 @@ import { Agent, hostedMcpTool } from '@openai/agents'
 import { client as pd } from "../utils/pipedream";
 import { webSearch , webScrape ,agenticSearch } from '../tools/webSearch.tools';
 import { listToolsMCP } from '../tools/pipedream.tools';
+import { createSubAgents } from '../tools/subagents.tools';
 
 
 // pipedream config
@@ -43,6 +44,7 @@ export const Atlas = new Agent({
         - Prefer the simplest tool that solves the task.
         - Do not use a more expensive or complex tool when a lighter tool is sufficient.
         - Use listToolsMCP to list the mcp's callable actions
+        - Use CreateSubAgents to delegate a complex, multi-step, or long-running piece of work to a sub-agent instead of doing it inline — pick the closest subagent_type and write a fully self-contained prompt, since the sub-agent has no memory of this conversation
 
         Work style:
         - Think like an executive support partner, not a chatbot.
@@ -71,6 +73,7 @@ export const Atlas = new Agent({
         webSearch,
         agenticSearch,
         listToolsMCP,
+        createSubAgents,
         hostedMcpTool({
             serverLabel:'pipedream-gmail',
             serverUrl:"https://remote.mcp.pipedream.net/v3",

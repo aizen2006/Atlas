@@ -41,23 +41,3 @@ export const getSkills = tool({
         }
     }
 });
-
-export const addSkill = tool({
-    name:"Add Skill",
-    description:``,
-    parameters:z.object(),
-    execute(){}
-});
-export const loadSkill = tool({
-    name:"Load Skill",
-    description:``,
-    parameters:z.object(),
-    execute(){}
-});
-// use with caution
-export const removeSkill = tool({
-    name:"Add Skill",
-    description:``,
-    parameters:z.object(),
-    execute(){}
-});
