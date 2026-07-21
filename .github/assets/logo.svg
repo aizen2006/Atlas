@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120" fill="none" role="img" aria-label="Atlas logo">
+  <defs>
+    <linearGradient id="atlasStroke" x1="10" y1="10" x2="110" y2="110" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#818CF8"/>
+      <stop offset="55%" stop-color="#38BDF8"/>
+      <stop offset="100%" stop-color="#2DD4BF"/>
+    </linearGradient>
+    <linearGradient id="atlasFill" x1="30" y1="28" x2="92" y2="94" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#818CF8" stop-opacity="0.28"/>
+      <stop offset="100%" stop-color="#2DD4BF" stop-opacity="0.10"/>
+    </linearGradient>
+  </defs>
+
+  <!-- the reflection loop: an orbit the agent travels after every task -->
+  <ellipse cx="60" cy="60" rx="54" ry="23" transform="rotate(-28 60 60)"
+           stroke="url(#atlasStroke)" stroke-width="2.5" stroke-opacity="0.55"/>
+
+  <!-- the globe Atlas carries: local, self-contained, yours -->
+  <circle cx="60" cy="60" r="30" fill="url(#atlasFill)"/>
+  <circle cx="60" cy="60" r="30" stroke="url(#atlasStroke)" stroke-width="3.5"/>
+
+  <!-- meridian and equator -->
+  <ellipse cx="60" cy="60" rx="12.5" ry="30" stroke="url(#atlasStroke)" stroke-width="2.25" stroke-opacity="0.8"/>
+  <path d="M31 51.5h58M31 68.5h58" stroke="url(#atlasStroke)" stroke-width="2.25" stroke-opacity="0.8" stroke-linecap="round"/>
+
+  <!-- a single pass around the loop -->
+  <circle cx="102" cy="35" r="6" fill="#2DD4BF"/>
+  <circle cx="102" cy="35" r="6" stroke="url(#atlasStroke)" stroke-width="2"/>
+</svg>

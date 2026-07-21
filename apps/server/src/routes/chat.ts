@@ -154,6 +154,8 @@ chat.post('/',async(c)=>{
 // for streaming ( later stage)
 chat.post('/stream',async(c)=>{})
 
+
+// Reflextion pipeline
 async function runReflectionPipeline(sessionId:number,task:string,result:string){
     let jobId: number | undefined;
     try {
@@ -183,16 +185,24 @@ async function runReflectionPipeline(sessionId:number,task:string,result:string)
         `);
 
         if(reflection_output?.text){
+            // the reflection is always logged against the experience, even when it is
+            // just an explanation of why nothing was worth keeping
             await db.update(experiences)
                 .set({reflection:reflection_output.text})
                 .where(eq(experiences.id,experience.id));
 
-            // Create's Memory
-            await createMemory({
-                content:reflection_output.text,
-                category:"workflow",
-                sourceExperienceId:experience.id
-            });
+            // Create's Memory — only when the reflection agent judged the lesson durable.
+            // searchMemory returns the k nearest neighbours regardless of quality, so
+            // storing every interaction would let trivia crowd out the real lessons.
+            if(reflection_output.worthRemembering){
+                await createMemory({
+                    content:reflection_output.text,
+                    category:reflection_output.category,
+                    importance:reflection_output.importance,
+                    confidence:reflection_output.confidence,
+                    sourceExperienceId:experience.id
+                });
+            }
         }
 
         await db.update(jobs)
