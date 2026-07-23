@@ -24,15 +24,26 @@ export function ChatView() {
                 </button>
             </header>
 
-            <div className="flex-1 overflow-y-auto">
+            {/* the scroll region fills the space; the composer floats over it */}
+            <div className="relative min-h-0 flex-1">
                 {messages.length === 0 ? (
-                    <EmptyState onPick={send} />
+                    <div className="h-full overflow-y-auto">
+                        <EmptyState onPick={send} />
+                    </div>
                 ) : (
                     <MessageList messages={messages} status={status} onRetry={retry} />
                 )}
-            </div>
 
-            <Composer onSend={send} onStop={stop} busy={busy} />
+                {/* floating composer: a fade so messages dissolve beneath a centered card */}
+                <div className="pointer-events-none absolute inset-x-0 bottom-0">
+                    <div className="h-20 bg-gradient-to-t from-canvas via-canvas/85 to-transparent" />
+                    <div className="pointer-events-auto -mt-6 bg-canvas px-4 pb-4">
+                        <div className="mx-auto max-w-3xl">
+                            <Composer onSend={send} onStop={stop} busy={busy} />
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     );
 }
