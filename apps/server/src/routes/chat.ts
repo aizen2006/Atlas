@@ -1,6 +1,7 @@
 import { Hono } from "hono";
+import { streamSSE } from "hono/streaming";
 import { openai } from "../libs/openai";
-import { runAgent , planner_agent, Atlas, reflection_agent } from "@repo/agents";
+import { runAgent , runAgentStream, planner_agent, Atlas, reflection_agent } from "@repo/agents";
 import { db, messages, sessions, jobs, experiences } from "@repo/memory";
 import { models } from "@repo/config";
 import { eq } from "drizzle-orm";
@@ -32,140 +33,198 @@ interface Conversation {
     content:string | null
 }
 
-// for non streaming ( intially )
-chat.post('/',async(c)=>{
-    try {
-        // Validation
-        const body = await c.req.json();
-        let { query , sessionId } = body;
-        let conversations : Conversation[] = [] ;
+// what the pipeline decided for this turn — surfaced to the UI so it can show
+// whether Atlas planned, recalled memory, or loaded skills.
+interface PipelineSummary {
+    planned: boolean,
+    memoriesUsed: number,
+    skills: string[]
+}
+
+// The shared front half of a turn: resolve or create the session, persist the
+// user message, optimize the query, run the planner, and retrieve memory +
+// skills into a ready-to-send prompt. Both the JSON and the streaming route
+// call this; only the final "act" step (buffered vs streamed) differs.
+async function prepareTurn(query:string,sessionId?:number):Promise<{
+    sessionId:number,
+    prompt:string,
+    pipeline:PipelineSummary
+}>{
+    let conversations : Conversation[] = [];
+
+    //Check's sessionId & create a new if not exists
+    if(!sessionId){
+        // a title is only needed for a brand-new session
         const title = await openai.responses.create({
             model:models.title,
             instructions:"Your role is to analyze the user's query and derive a sutable title for this conversation",
             input:query,
-            reasoning:{
-                effort:"none"
-            }
+            reasoning:{effort:"none"}
         });
-        //Check's sessionId & create a new if not exists
-        if (!sessionId){
-            const [session] = await db.insert(sessions).values({title:title.output_text}).returning({id:sessions.id});
-            if(!session) throw new Error("Failed to create session");
-            sessionId = session.id;
-        }else{
-            conversations = await db
-                .select({role:messages.role,content:messages.content})
-                .from(messages)
-                .where(eq(messages.sessionId,sessionId));
+        const [session] = await db.insert(sessions).values({title:title.output_text}).returning({id:sessions.id});
+        if(!session) throw new Error("Failed to create session");
+        sessionId = session.id;
+    }else{
+        conversations = await db
+            .select({role:messages.role,content:messages.content})
+            .from(messages)
+            .where(eq(messages.sessionId,sessionId));
+    }
+
+    // store's the user's message
+    await db.insert(messages).values({sessionId,role:"user",content:query});
+
+    // the prompt template is filled by a single render() at the end. Every
+    // placeholder gets a default here, so an unused section reads as an
+    // explicit "none" instead of leaking a raw {{plan}} into the model.
+    const promptTemplate = `
+    UserQuery:{{query}}
+
+    Plan:{{plan}}
+
+    Context:{{memory}}
+
+    Skills:{{skills}}
+
+    Conversation:{{conversation}}
+    `;
+    const promptVars: Record<string,string> = {
+        query,
+        plan: "No plan was required.",
+        memory: "No relevant memory found.",
+        skills: "No relevant skills found.",
+        // conversations is an array of rows; interpolating it directly
+        // renders "[object Object]", so serialize each turn explicitly.
+        conversation: conversations.length
+            ? conversations.map(m=>`${m.role}: ${m.content}`).join("\n")
+            : "No prior conversation.",
+    };
+
+    //Optimize the Prompt
+    const response = await openai.responses.create({
+        model: models.optimizer,
+        instructions: `
+        You are an expert AI Prompt Engineer and Query Optimizer. Your job is to analyze poorly phrased, vague, or inefficient user queries and rewrite them into highly effective, clear, and actionable prompts that yield the best possible AI responses.
+
+        ### Optimization Rules:
+        1. Clarify intent and fill in missing context.
+        2. Define a clear role/persona for the AI if necessary.
+        3. Specify the desired format, tone, or constraints.
+        4. Keep it concise but comprehensive.
+
+        ### Examples:
+
+        [Input Query]: "Can you help"
+        [Optimized Prompt]: "I need assistance with a task. Please ask me 2-3 clarifying questions to understand what I am trying to achieve so you can help me effectively."
+
+        [Input Query]: "write an email to my boss about being sick"
+        [Optimized Prompt]: "Write a professional and polite email to my manager informing them that I cannot come to work today due to illness. Keep it brief, mention that I will check my emails periodically if urgent, and thank them for understanding."
+
+        [Input Query]: "python loop"
+        [Optimized Prompt]: "Explain how a 'for' loop works in Python. Provide a simple, real-world code example and break down the syntax step-by-step for a beginner."
+
+        [Input Query]: {{USER_QUERY}}
+        [Optimized Prompt]:
+        `,
+        input: query,
+        reasoning:{effort:"low"}
+    });
+    // use the optimized query from here on
+    promptVars.query = response.output_text;
+
+    // planner agent
+    const planner_output = await runAgent(planner_agent,response.output_text);
+
+    const pipeline: PipelineSummary = { planned:false, memoriesUsed:0, skills:[] };
+
+    // checks if plans exist and injects the plan into the prompt
+    if(planner_output?.resources.plan){
+        if(!planner_output.plan) throw new Error("Failed to get the plan")
+        promptVars.plan = planner_output.plan;
+        pipeline.planned = true;
+    }
+    // Memory layer
+    if(planner_output?.resources.memory){
+        // later make the number of results returned dynamic
+        const memoryHits = await searchMemory(query,3);
+        if(memoryHits.length){
+            promptVars.memory = memoryHits.map(m=>`- ${m.content}`).join("\n");
+            pipeline.memoriesUsed = memoryHits.length;
         }
-        // store's the user's message
-        await db.insert(messages).values({sessionId:sessionId,role:"user",content:query});
-
-        // the prompt template is filled by a single render() at the end. Every
-        // placeholder gets a default here, so an unused section reads as an
-        // explicit "none" instead of leaking a raw {{plan}} into the model.
-        const promptTemplate = `
-        UserQuery:{{query}}
-
-        Plan:{{plan}}
-
-        Context:{{memory}}
-
-        Skills:{{skills}}
-
-        Conversation:{{conversation}}
-        `;
-        const promptVars: Record<string,string> = {
-            query,
-            plan: "No plan was required.",
-            memory: "No relevant memory found.",
-            skills: "No relevant skills found.",
-            // conversations is an array of rows; interpolating it directly
-            // renders "[object Object]", so serialize each turn explicitly.
-            conversation: conversations.length
-                ? conversations.map(m=>`${m.role}: ${m.content}`).join("\n")
-                : "No prior conversation.",
-        };
-
-        //Optimize the Prompt
-        const response = await openai.responses.create({
-            model: models.optimizer,
-            instructions: `
-            You are an expert AI Prompt Engineer and Query Optimizer. Your job is to analyze poorly phrased, vague, or inefficient user queries and rewrite them into highly effective, clear, and actionable prompts that yield the best possible AI responses.
-
-            ### Optimization Rules:
-            1. Clarify intent and fill in missing context.
-            2. Define a clear role/persona for the AI if necessary.
-            3. Specify the desired format, tone, or constraints.
-            4. Keep it concise but comprehensive.
-
-            ### Examples:
-
-            [Input Query]: "Can you help"
-            [Optimized Prompt]: "I need assistance with a task. Please ask me 2-3 clarifying questions to understand what I am trying to achieve so you can help me effectively."
-
-            [Input Query]: "write an email to my boss about being sick"
-            [Optimized Prompt]: "Write a professional and polite email to my manager informing them that I cannot come to work today due to illness. Keep it brief, mention that I will check my emails periodically if urgent, and thank them for understanding."
-
-            [Input Query]: "python loop"
-            [Optimized Prompt]: "Explain how a 'for' loop works in Python. Provide a simple, real-world code example and break down the syntax step-by-step for a beginner."
-
-            [Input Query]: {{USER_QUERY}}
-            [Optimized Prompt]:
-            `,
-            input: query,
-            reasoning:{effort:"low"}
-        });
-        // use the optimized query from here on
-        promptVars.query = response.output_text;
-
-        // planner agent
-        const planner_output = await runAgent(planner_agent,response.output_text);
-        // checks if plans exist and injects the plan into the prompt
-        if(planner_output?.resources.plan){
-            if(!planner_output.plan) throw new Error("Failed to get the plan")
-            promptVars.plan = planner_output.plan;
+    }
+    // skills layer
+    if(planner_output?.resources.skills && planner_output.skills.length){
+        const skillNames = planner_output.skills.map(s=>s.name);
+        const loadedSkills = await loadSkills(skillNames);
+        if(loadedSkills.length){
+            promptVars.skills = loadedSkills.map(s=>`### ${s.name}\n${s.content}`).join("\n\n");
+            pipeline.skills = loadedSkills.map(s=>s.name);
         }
-        // Memory layer
-        if(planner_output?.resources.memory){
-            // later make the number of results returned dynamic
-            const memoryHits = await searchMemory(query,3);
-            if(memoryHits.length){
-                promptVars.memory = memoryHits.map(m=>`- ${m.content}`).join("\n");
-            }
-        }
-        // skills layer
-        if(planner_output?.resources.skills && planner_output.skills.length){
-            const skillNames = planner_output.skills.map(s=>s.name);
-            const loadedSkills = await loadSkills(skillNames);
-            if(loadedSkills.length){
-                promptVars.skills = loadedSkills.map(s=>`### ${s.name}\n${s.content}`).join("\n\n");
-            }
-        }
+    }
 
-        // one render, all placeholders resolved
-        const prompt = render(promptTemplate,promptVars);
+    // one render, all placeholders resolved
+    const prompt = render(promptTemplate,promptVars);
+
+    return { sessionId, prompt, pipeline };
+}
+
+// non-streaming — the full answer arrives at once after the pipeline completes
+chat.post('/',async(c)=>{
+    try {
+        const { query , sessionId } = await c.req.json();
+        const prepared = await prepareTurn(query,sessionId);
 
         // call main agent layer
-        const main_output = await runAgent(Atlas,prompt);
+        const main_output = await runAgent(Atlas,prepared.prompt);
         if(!main_output) throw new Error("Failed to get a response from Atlas");
 
         // store's the agent's reply
-        await db.insert(messages).values({sessionId,role:"agent",content:main_output});
+        await db.insert(messages).values({sessionId:prepared.sessionId,role:"agent",content:main_output});
 
         // create a job -> create's experience -> call reflection agent -> Create's Memory
         // runs after the response is sent, so it never adds latency to the client
-        void runReflectionPipeline(sessionId,query,main_output);
+        void runReflectionPipeline(prepared.sessionId,query,main_output);
 
-        return c.json({sessionId,response:main_output});
+        return c.json({sessionId:prepared.sessionId,response:main_output,pipeline:prepared.pipeline});
     } catch (error) {
         console.error(error);
         return c.json({message:"Failed to process the request"},500);
     }
 })
 
-// for streaming ( later stage)
-chat.post('/stream',async(c)=>{})
+// streaming — the same pipeline, but Atlas's tokens are pushed as they arrive.
+// Event order: one `meta` (sessionId + pipeline), many `token`, then `done`
+// (or `error`). Every event's `data` is JSON so tokens keep their newlines.
+chat.post('/stream',async(c)=>{
+    const { query , sessionId } = await c.req.json();
+    return streamSSE(c,async(stream)=>{
+        try {
+            const prepared = await prepareTurn(query,sessionId);
+            await stream.writeSSE({
+                event:"meta",
+                data:JSON.stringify({sessionId:prepared.sessionId,pipeline:prepared.pipeline})
+            });
+
+            const textStream = await runAgentStream(Atlas,prepared.prompt);
+            let full = "";
+            for await (const chunk of textStream){
+                const delta = chunk.toString();
+                if(!delta) continue;
+                full += delta;
+                await stream.writeSSE({event:"token",data:JSON.stringify(delta)});
+            }
+
+            // store's the agent's reply, then reflect in the background
+            await db.insert(messages).values({sessionId:prepared.sessionId,role:"agent",content:full});
+            void runReflectionPipeline(prepared.sessionId,query,full);
+
+            await stream.writeSSE({event:"done",data:JSON.stringify({sessionId:prepared.sessionId})});
+        } catch (error) {
+            console.error(error);
+            await stream.writeSSE({event:"error",data:JSON.stringify({message:"Failed to process the request"})});
+        }
+    });
+})
 
 
 // Reflextion pipeline
