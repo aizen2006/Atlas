@@ -1,0 +1,45 @@
+/*
+  Atlas design tokens — the single source of truth for the UI.
+
+  Encoded as Tailwind v4 @theme variables so every value is available both as a
+  utility (bg-canvas, text-ink, rounded-md, shadow-elevated) and as a raw CSS
+  variable (var(--color-canvas)). Components read tokens, never raw hex.
+
+  The language is Anthropic's warm parchment: an off-white canvas, a terracotta
+  accent, warm near-black ink, generous space, restrained motion. Light-only by
+  deliberate brand decision — the palette commits to a single warm surface.
+*/
+@theme {
+    /* color — one accent (terracotta), locked page-wide */
+    --color-canvas: #faf9f7; /* app background, agent reading column */
+    --color-surface-1: #f2f0ec; /* composer field, subtle panels */
+    --color-surface-2: #e8e5e0; /* user bubble, rail, hover fills */
+    --color-border: #d8d4cc; /* 1px hairline separators, input borders */
+    --color-ink: #1a1a18; /* primary text (warm near-black, never #000) */
+    --color-ink-muted: #6b6b63; /* timestamps, metadata, secondary text */
+    --color-primary: #c2522d; /* send, focus ring, active — brand moments */
+    --color-primary-hover: #a8421f;
+    --color-on-primary: #ffffff; /* text/icon on terracotta */
+    --color-accent-warm: #d4a574; /* sparing highlights: plan/skill chips */
+    --color-code-bg: #f0ede8; /* inline + block code background */
+
+    /* typography — Styrene first for anyone licensed, else a self-hostable
+       humanist grotesque, else the system stack. Fonts are vendored in Phase 3
+       when the real chat UI ships; until then the stack falls back to system. */
+    --font-sans: "Styrene A", "Hanken Grotesk", -apple-system, BlinkMacSystemFont,
+        "Segoe UI", Roboto, sans-serif;
+    --font-mono: "Geist Mono", "JetBrains Mono", ui-monospace, SFMono-Regular,
+        Menlo, monospace;
+
+    /* radius — one shape system, applied consistently */
+    --radius-sm: 4px; /* inputs, code */
+    --radius-md: 8px; /* buttons, message bubbles */
+    --radius-lg: 16px; /* panels, cards */
+
+    /* shadows — tinted to the ink hue, never pure black */
+    --shadow-card: 0 1px 2px rgb(26 26 24 / 0.06);
+    --shadow-elevated: 0 4px 24px rgb(26 26 24 / 0.08);
+
+    /* motion */
+    --ease-brand: cubic-bezier(0.4, 0, 0.2, 1);
+}
