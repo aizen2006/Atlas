@@ -1,5 +1,6 @@
 import { Agent  } from "@openai/agents";
 import { z } from "zod"
+import { models } from "@repo/config";
 
 const reflectionOutput = z.object({
     worthRemembering: z.boolean(),
@@ -69,6 +70,6 @@ export const reflection_agent = new Agent({
     confidence (0-100): how sure you are it generalises. Something the user stated outright
     is 90+. Something inferred from a single interaction is 40-60.
     `,
-    model:'gpt-5.4-mini',
+    model:models.reflection,
     outputType:reflectionOutput
 })

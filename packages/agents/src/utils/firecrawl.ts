@@ -1,5 +1,5 @@
 import { Firecrawl } from 'firecrawl';
-import 'dotenv/config';
+import '@repo/config';
 
 
 if(!process.env.FIRECRAWL_API_KEY) {

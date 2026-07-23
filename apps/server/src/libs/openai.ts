@@ -1,7 +1,8 @@
-import OpenAI  from "openai";
+import OpenAI from "openai";
+import { env } from "@repo/config";
 
-if(!process.env.OPENAI) throw new Error("Failed to Load OpenAi Key");
+if (!env.OPENAI_API_KEY) throw new Error("Failed to Load OpenAi Key");
 
-export const openai : OpenAI = new OpenAI ({
-    apiKey:process.env.OPENAI
-})
+export const openai: OpenAI = new OpenAI({
+    apiKey: env.OPENAI_API_KEY,
+});

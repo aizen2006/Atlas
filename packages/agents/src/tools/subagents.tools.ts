@@ -2,6 +2,7 @@ import { tool, run, type Tool } from "@openai/agents";
 import { SandboxAgent, compaction, filesystem, memory, shell, type Capability } from "@openai/agents/sandbox";
 import { UnixLocalSandboxClient } from "@openai/agents/sandbox/local";
 import z from "zod";
+import { models } from "@repo/config";
 import { webSearch, webScrape, agenticSearch } from "./webSearch.tools";
 
 {/*
@@ -60,7 +61,7 @@ export const createSubAgents : Tool = tool({
 
         const agent = new SandboxAgent({
             name:`${subagent_type}-subagent`,
-            model:"gpt-5.4",
+            model:models.subagent,
             instructions:config.instructions,
             capabilities:[...config.capabilities],
             tools:[...config.tools]

@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { openai } from "../libs/openai";
 import { runAgent , planner_agent, Atlas, reflection_agent } from "@repo/agents";
 import { db, messages, sessions, jobs, experiences } from "@repo/memory";
+import { models } from "@repo/config";
 import { eq } from "drizzle-orm";
 import { searchMemory, loadSkills, createMemory } from "../libs/utils";
 
@@ -39,7 +40,7 @@ chat.post('/',async(c)=>{
         let { query , sessionId } = body;
         let conversations : Conversation[] = [] ;
         const title = await openai.responses.create({
-            model:"gpt-5.4-nano",
+            model:models.title,
             instructions:"Your role is to analyze the user's query and derive a sutable title for this conversation",
             input:query,
             reasoning:{
@@ -59,7 +60,11 @@ chat.post('/',async(c)=>{
         }
         // store's the user's message
         await db.insert(messages).values({sessionId:sessionId,role:"user",content:query});
-        let prompt = `
+
+        // the prompt template is filled by a single render() at the end. Every
+        // placeholder gets a default here, so an unused section reads as an
+        // explicit "none" instead of leaking a raw {{plan}} into the model.
+        const promptTemplate = `
         UserQuery:{{query}}
 
         Plan:{{plan}}
@@ -68,11 +73,23 @@ chat.post('/',async(c)=>{
 
         Skills:{{skills}}
 
-        Conversation:${conversations}
-        `
-        //Optimize the Prompt  
+        Conversation:{{conversation}}
+        `;
+        const promptVars: Record<string,string> = {
+            query,
+            plan: "No plan was required.",
+            memory: "No relevant memory found.",
+            skills: "No relevant skills found.",
+            // conversations is an array of rows; interpolating it directly
+            // renders "[object Object]", so serialize each turn explicitly.
+            conversation: conversations.length
+                ? conversations.map(m=>`${m.role}: ${m.content}`).join("\n")
+                : "No prior conversation.",
+        };
+
+        //Optimize the Prompt
         const response = await openai.responses.create({
-            model: 'gpt-5.6-luna',
+            model: models.optimizer,
             instructions: `
             You are an expert AI Prompt Engineer and Query Optimizer. Your job is to analyze poorly phrased, vague, or inefficient user queries and rewrite them into highly effective, clear, and actionable prompts that yield the best possible AI responses.
 
@@ -99,39 +116,35 @@ chat.post('/',async(c)=>{
             input: query,
             reasoning:{effort:"low"}
         });
-        // inject the query into the prompt
-        prompt = render(prompt,{
-            query:response.output_text
-        });
+        // use the optimized query from here on
+        promptVars.query = response.output_text;
+
         // planner agent
         const planner_output = await runAgent(planner_agent,response.output_text);
         // checks if plans exist and injects the plan into the prompt
         if(planner_output?.resources.plan){
             if(!planner_output.plan) throw new Error("Failed to get the plan")
-            prompt = render(prompt,{
-                plan:planner_output.plan
-            });
+            promptVars.plan = planner_output.plan;
         }
         // Memory layer
         if(planner_output?.resources.memory){
             // later make the number of results returned dynamic
             const memoryHits = await searchMemory(query,3);
-            prompt = render(prompt,{
-                memory: memoryHits.length
-                    ? memoryHits.map(m=>`- ${m.content}`).join("\n")
-                    : "No relevant memory found."
-            });
+            if(memoryHits.length){
+                promptVars.memory = memoryHits.map(m=>`- ${m.content}`).join("\n");
+            }
         }
         // skills layer
         if(planner_output?.resources.skills && planner_output.skills.length){
             const skillNames = planner_output.skills.map(s=>s.name);
             const loadedSkills = await loadSkills(skillNames);
-            prompt = render(prompt,{
-                skills: loadedSkills.length
-                    ? loadedSkills.map(s=>`### ${s.name}\n${s.content}`).join("\n\n")
-                    : "No relevant skills found."
-            });
+            if(loadedSkills.length){
+                promptVars.skills = loadedSkills.map(s=>`### ${s.name}\n${s.content}`).join("\n\n");
+            }
         }
+
+        // one render, all placeholders resolved
+        const prompt = render(promptTemplate,promptVars);
 
         // call main agent layer
         const main_output = await runAgent(Atlas,prompt);

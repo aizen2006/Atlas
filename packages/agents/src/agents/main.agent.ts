@@ -1,4 +1,5 @@
 import { Agent, hostedMcpTool } from '@openai/agents'
+import { models } from "@repo/config";
 import { client as pd } from "../utils/pipedream";
 import { webSearch , webScrape ,agenticSearch } from '../tools/webSearch.tools';
 import { listToolsMCP } from '../tools/pipedream.tools';
@@ -99,5 +100,5 @@ export const Atlas = new Agent({
             requireApproval:'never'
         })
     ],
-    model:"gpt-5.5",
+    model:models.atlas,
 })

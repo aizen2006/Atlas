@@ -1,5 +1,6 @@
 import { Agent  } from "@openai/agents";
 import { z } from "zod"
+import { models } from "@repo/config";
 import { getSkills } from "../tools/skills.tools";
 
 
@@ -115,7 +116,7 @@ export const planner_agent = new Agent({
     - Only decide whether memory is needed.
     - Only call 'getSkills' when necessary.
     `,
-    model:'gpt-5.6-luna',
+    model:models.planner,
     tools:[
         getSkills
     ],

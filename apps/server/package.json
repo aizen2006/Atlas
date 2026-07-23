@@ -5,6 +5,7 @@
   },
   "dependencies": {
     "@repo/agents": "workspace:*",
+    "@repo/config": "workspace:*",
     "@repo/memory": "workspace:*",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",

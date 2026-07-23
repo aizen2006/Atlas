@@ -1,5 +1,5 @@
 import { PipedreamClient } from '@pipedream/sdk';
-import 'dotenv/config';
+import '@repo/config';
 
 export interface connectURL{
     message:string

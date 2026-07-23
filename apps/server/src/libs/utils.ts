@@ -1,6 +1,7 @@
 import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { db, memories, skills } from "@repo/memory";
+import { models } from "@repo/config";
 import { openai } from "./openai";
 import { Embedding } from "openai/resources/embeddings.mjs";
 import { sql, inArray, eq } from "drizzle-orm";
@@ -19,7 +20,7 @@ export async function embed(text:string):Promise<Embedding[]>{
     try {
         const response = await openai.embeddings.create({
             input:text,
-            model:"text-embedding-3-small"
+            model:models.embedding
         });
         return response.data
     } catch (error) {
